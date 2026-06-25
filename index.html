@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FASTA Sequence Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --teal: #2A9D8F; --teal-light: #E1F5EE; --teal-dark: #0F6E56;
+      --navy: #1B2A3B; --bg: #F8F9FA; --surface: #FFFFFF;
+      --border: #DEE2E6; --border-strong: #CED4DA;
+      --text: #212529; --text-secondary: #6C757D; --text-tertiary: #ADB5BD;
+      --danger: #D85A30; --danger-bg: #FAECE7;
+      --mono: 'JetBrains Mono', monospace; --sans: 'Inter', system-ui, sans-serif;
+      --radius: 8px; --radius-lg: 12px;
+    }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header {
+      background: var(--navy); padding: 1rem 2rem;
+      display: flex; align-items: center; gap: 12px;
+    }
+    header .logo-mark {
+      width: 32px; height: 32px; background: var(--teal); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;
+    }
+    header h1 { font-size: 16px; font-weight: 500; color: white; letter-spacing: 0.01em; }
+    header p { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+
+    /* Page-level tabs */
+    .page-tabs {
+      display: flex; background: var(--navy); border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 0 2rem;
+    }
+    .page-tab {
+      padding: 10px 20px; font-size: 13px; cursor: pointer; font-family: var(--sans);
+      color: rgba(255,255,255,0.5); border-bottom: 2px solid transparent;
+      transition: color 0.15s; display: flex; align-items: center; gap: 7px;
+    }
+    .page-tab:hover { color: rgba(255,255,255,0.8); }
+    .page-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+    .page-tab .step-badge {
+      font-size: 10px; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6);
+      border-radius: 10px; padding: 1px 7px; font-weight: 500;
+    }
+    .page-tab.active .step-badge { background: var(--teal); color: white; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Layout */
+    .layout {
+      max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem;
+      display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem; align-items: start;
+    }
+    @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+
+    /* Panels */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .panel + .panel { margin-top: 12px; }
+    .panel-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      color: var(--text-secondary); text-transform: uppercase; background: var(--bg);
+    }
+    .panel-body { padding: 16px; }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 1.5px dashed var(--border-strong); border-radius: var(--radius);
+      padding: 1.5rem 1rem; text-align: center; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .drop-zone:hover, .drop-zone.dragover { background: var(--teal-light); border-color: var(--teal); }
+    .drop-zone i { font-size: 24px; color: var(--text-tertiary); display: block; margin-bottom: 8px; }
+    .drop-zone p { font-size: 13px; color: var(--text-secondary); }
+    .drop-zone span { font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px; }
+
+    /* File chips */
+    .file-list { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+    .file-chip { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 5px 10px; }
+    .file-chip .fname { flex: 1; font-family: var(--mono); font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-chip .rm { cursor: pointer; color: var(--text-tertiary); font-size: 18px; line-height: 1; }
+    .file-chip .rm:hover { color: var(--danger); }
+
+    /* Options */
+    .option-group { margin-bottom: 14px; }
+    .option-group:last-child { margin-bottom: 0; }
+    .opt-label { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 6px; display: block; }
+    .opt-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+    .toggle-row { display: flex; align-items: flex-start; gap: 10px; }
+    .toggle { position: relative; width: 38px; height: 20px; flex-shrink: 0; margin-top: 1px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track { position: absolute; inset: 0; border-radius: 10px; background: var(--border-strong); cursor: pointer; transition: background 0.2s; }
+    .toggle input:checked + .toggle-track { background: var(--teal); }
+    .toggle-track::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; border-radius: 50%; background: white; transition: transform 0.2s; }
+    .toggle input:checked + .toggle-track::before { transform: translateX(18px); }
+
+    .pick-group { display: flex; flex-direction: column; gap: 5px; }
+    .pick-opt { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text-secondary); padding: 5px 8px; border-radius: var(--radius); border: 1px solid transparent; transition: all 0.12s; }
+    .pick-opt:hover { background: var(--bg); }
+    .pick-opt.active { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); font-weight: 500; }
+    .pick-opt input { display: none; }
+
+    /* Buttons */
+    .run-btn {
+      width: 100%; padding: 10px 16px; margin-top: 16px;
+      background: var(--navy); color: white; border: none; border-radius: var(--radius);
+      cursor: pointer; font-size: 14px; font-weight: 500; font-family: var(--sans);
+      display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s;
+    }
+    .run-btn:hover { opacity: 0.88; }
+    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Results */
+    .results-panel { display: none; }
+    .results-panel.show { display: block; }
+
+    .status-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+      background: var(--teal-light); border-bottom: 1px solid var(--border);
+      font-size: 13px; color: var(--teal-dark);
+    }
+
+    .inner-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .inner-tab {
+      padding: 10px 18px; font-size: 13px; cursor: pointer; font-family: var(--sans);
+      color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px;
+    }
+    .inner-tab:hover { color: var(--text); }
+    .inner-tab.active { color: var(--teal); border-bottom-color: var(--teal); font-weight: 500; }
+
+    .inner-tab-content { display: none; padding: 16px; }
+    .inner-tab-content.active { display: block; }
+
+    .seq-entry { margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .seq-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .seq-name { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--text); }
+    .seq-meta { font-size: 11px; color: var(--text-secondary); }
+    .seq-body { padding: 10px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.8; word-break: break-all; color: var(--text); max-height: 160px; overflow-y: auto; }
+
+    .copy-btn { font-size: 11px; padding: 3px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: white; color: var(--text-secondary); cursor: pointer; font-family: var(--sans); }
+    .copy-btn:hover { background: var(--bg); }
+
+    .aa-frame { margin-bottom: 12px; }
+    .aa-frame:last-child { margin-bottom: 0; }
+    .aa-frame-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; font-family: var(--sans); }
+    .aa-seq { font-family: var(--mono); font-size: 12px; line-height: 1.7; word-break: break-all; }
+    .stop-mark { color: var(--danger); font-weight: 500; }
+    .alert { display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border-radius:var(--radius); font-size:12px; margin-bottom:6px; line-height:1.4; }
+    .alert:last-child { margin-bottom:0; }
+    .alert i { font-size:14px; flex-shrink:0; margin-top:1px; }
+    .alert-ok  { background:#E6F4EA; color:#1A6E30; border:1px solid #B6DFC0; }
+    .alert-warn{ background:#FFF8E1; color:#7A5800; border:1px solid #FFE082; }
+    .alert-err { background:var(--danger-bg); color:#8B2000; border:1px solid #F5C4B3; }
+    .s1-linked-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; background:var(--teal-light); color:var(--teal-dark); border:1px solid #A8DDD6; border-radius:20px; padding:2px 10px; margin-left:8px; }
+    .aa-seq { font-family: var(--mono); font-size: 12px; line-height: 1.7; word-break: break-all; }
+
+    .dl-row { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--bg); }
+    .dl-btn { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: white; color: var(--text); cursor: pointer; font-family: var(--sans); transition: background 0.12s; }
+    .dl-btn:hover { background: var(--bg); }
+
+    .err { font-size: 13px; color: var(--danger); background: var(--danger-bg); border: 1px solid #F5C4B3; border-radius: var(--radius); padding: 10px 14px; margin-top: 12px; display: none; }
+
+    /* Step 1 preview table */
+    .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .preview-table th { text-align: left; padding: 7px 10px; background: var(--bg); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-secondary); text-transform: uppercase; }
+    .preview-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .preview-table tr:last-child td { border-bottom: none; }
+    .preview-table .td-name { font-family: var(--mono); font-weight: 500; color: var(--text); white-space: nowrap; }
+    .preview-table .td-seq { font-family: var(--mono); color: var(--text-secondary); max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .preview-table .td-len { font-family: var(--mono); color: var(--text-tertiary); white-space: nowrap; }
+
+    footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text-tertiary); }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark" aria-hidden="true"><i class="ti ti-dna"></i></div>
+  <div>
+    <h1>FASTA Sequence Tool</h1>
+    <p>Simon Lab · Fred Hutchinson Cancer Center</p>
+  </div>
+</header>
+
+<!-- Page-level navigation -->
+<nav class="page-tabs">
+  <div class="page-tab active" data-page="step1">
+    <span class="step-badge">Step 1</span> Prep for codon optimization
+  </div>
+  <div class="page-tab" data-page="step2">
+    <span class="step-badge">Step 2</span> Process codon opt output
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STEP 1: Protein FASTA → Excel for codon opt upload         -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-step1">
+  <div class="layout">
+
+    <div>
+      <div class="panel">
+        <div class="panel-header">Input — protein FASTA files</div>
+        <div class="panel-body">
+          <div class="drop-zone" id="s1-dropZone">
+            <i class="ti ti-file-upload" aria-hidden="true"></i>
+            <p>Drop FASTA files here</p>
+            <p style="margin-top:4px"><span>or click to browse</span></p>
+            <span>.fa .fasta — one file per sequence</span>
+          </div>
+          <input type="file" id="s1-fileInput" accept=".fa,.fasta,.fna" multiple style="display:none">
+          <div class="file-list" id="s1-fileList"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">About this step</div>
+        <div class="panel-body">
+          <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;">
+            Export each protein sequence from SnapGene as a <strong>.fasta</strong> file.
+            The filename (before the extension) becomes the sequence name in the output.
+            This tool produces a CSV ready to upload to your codon optimization tool —
+            one row per sequence, with columns <em>Sequence name</em> and <em>Protein sequence</em>.
+          </p>
+        </div>
+      </div>
+
+      <div id="s1-errMsg" class="err"></div>
+      <button class="run-btn" id="s1-runBtn" disabled>
+        <i class="ti ti-table-export" aria-hidden="true"></i>
+        Generate codon opt input
+      </button>
+    </div>
+
+    <div class="panel results-panel" id="s1-resultsPanel">
+      <div class="status-row" id="s1-statusRow" style="display:none">
+        <i class="ti ti-circle-check" aria-hidden="true"></i>
+        <span id="s1-statusText"></span>
+      </div>
+      <div class="panel-header" style="border-top:none">Preview</div>
+      <div style="padding:0 0 0 0; overflow-x:auto;">
+        <table class="preview-table" id="s1-previewTable">
+          <thead><tr><th>Sequence name</th><th>Protein sequence</th><th>Length</th></tr></thead>
+          <tbody id="s1-previewBody"></tbody>
+        </table>
+      </div>
+      <div class="dl-row">
+        <button class="dl-btn" id="s1-dlCsv">
+          <i class="ti ti-download" aria-hidden="true"></i> Download Excel (for codon opt upload)
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STEP 2: Codon opt output → merged, RC, translated          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-step2">
+  <div class="layout">
+
+    <div>
+      <div class="panel">
+        <div class="panel-header">Input — one FASTA per sequence folder</div>
+        <div class="panel-body">
+          <div class="drop-zone" id="s2-dropZone">
+            <i class="ti ti-file-upload" aria-hidden="true"></i>
+            <p>Drop FASTA files here</p>
+            <p style="margin-top:4px"><span>or click to browse</span></p>
+            <span>.fa .fasta .fna .ffn .frn</span>
+          </div>
+          <input type="file" id="s2-fileInput" accept=".fa,.fasta,.fna,.ffn,.frn" multiple style="display:none">
+          <div class="file-list" id="s2-fileList"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Options</div>
+        <div class="panel-body">
+          <div class="option-group">
+            <div class="toggle-row">
+              <label class="toggle">
+                <input type="checkbox" id="s2-rcToggle">
+                <div class="toggle-track"></div>
+              </label>
+              <div>
+                <span class="opt-label">Reverse complement</span>
+                <div class="opt-sub">Output sequences will be reverse complemented before export</div>
+              </div>
+            </div>
+          </div>
+          <div class="option-group">
+            <span class="opt-label">If multiple FASTAs per folder, use:</span>
+            <div class="pick-group" id="s2-pickGroup">
+              <label class="pick-opt active" data-pick="first">
+                <input type="radio" name="s2pick" value="first" checked>
+                <i class="ti ti-sort-ascending" style="font-size:14px" aria-hidden="true"></i>
+                First (alphabetical)
+              </label>
+              <label class="pick-opt" data-pick="longest">
+                <input type="radio" name="s2pick" value="longest">
+                <i class="ti ti-ruler" style="font-size:14px" aria-hidden="true"></i>
+                Longest sequence
+              </label>
+              <label class="pick-opt" data-pick="last">
+                <input type="radio" name="s2pick" value="last">
+                <i class="ti ti-sort-descending" style="font-size:14px" aria-hidden="true"></i>
+                Last (alphabetical)
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="s2-errMsg" class="err"></div>
+      <button class="run-btn" id="s2-runBtn" disabled>
+        <i class="ti ti-player-play" aria-hidden="true"></i>
+        Process sequences
+      </button>
+    </div>
+
+    <div class="panel results-panel" id="s2-resultsPanel">
+      <div class="status-row" id="s2-statusRow" style="display:none">
+        <i class="ti ti-circle-check" aria-hidden="true"></i>
+        <span id="s2-statusText"></span>
+      </div>
+      <div class="inner-tabs">
+        <div class="inner-tab active" data-itab="dna">DNA sequences</div>
+        <div class="inner-tab" data-itab="aa">Translation (frame +1)</div>
+      </div>
+      <div class="inner-tab-content active" id="s2-tab-dna"></div>
+      <div class="inner-tab-content" id="s2-tab-aa"></div>
+      <div class="dl-row">
+        <button class="dl-btn" id="s2-dlFasta"><i class="ti ti-download" aria-hidden="true"></i> Download FASTA</button>
+        <button class="dl-btn" id="s2-dlCsv"><i class="ti ti-table" aria-hidden="true"></i> Download Excel</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>Simon Lab · Fred Hutchinson Cancer Center</footer>
+
+<script>
+// ── Shared utilities ──────────────────────────────────────────────────────────
+const CODONS = {
+  TTT:'F',TTC:'F',TTA:'L',TTG:'L',CTT:'L',CTC:'L',CTA:'L',CTG:'L',
+  ATT:'I',ATC:'I',ATA:'I',ATG:'M',GTT:'V',GTC:'V',GTA:'V',GTG:'V',
+  TCT:'S',TCC:'S',TCA:'S',TCG:'S',CCT:'P',CCC:'P',CCA:'P',CCG:'P',
+  ACT:'T',ACC:'T',ACA:'T',ACG:'T',GCT:'A',GCC:'A',GCA:'A',GCG:'A',
+  TAT:'Y',TAC:'Y',TAA:'*',TAG:'*',CAT:'H',CAC:'H',CAA:'Q',CAG:'Q',
+  AAT:'N',AAC:'N',AAA:'K',AAG:'K',GAT:'D',GAC:'D',GAA:'E',GAG:'E',
+  TGT:'C',TGC:'C',TGA:'*',TGG:'W',CGT:'R',CGC:'R',CGA:'R',CGG:'R',
+  AGT:'S',AGC:'S',AGA:'R',AGG:'R',GGT:'G',GGC:'G',GGA:'G',GGG:'G'
+};
+
+function revcomp(seq) {
+  const m={A:'T',T:'A',G:'C',C:'G',a:'t',t:'a',g:'c',c:'g',N:'N',n:'n'};
+  return seq.split('').reverse().map(b=>m[b]||'N').join('');
+}
+function translate(seq,frame) {
+  const s=seq.toUpperCase().slice(frame); let aa='';
+  for(let i=0;i+2<s.length;i+=3) aa+=CODONS[s.slice(i,i+3)]||'X';
+  return aa;
+}
+function parseFasta(text) {
+  const recs=[]; let hdr=null,parts=[];
+  for(const line of text.split('\n')) {
+    const l=line.trim();
+    if(l.startsWith('>')) { if(hdr!==null) recs.push([hdr,parts.join('')]); hdr=l.slice(1); parts=[]; }
+    else if(l) parts.push(l);
+  }
+  if(hdr!==null) recs.push([hdr,parts.join('')]);
+  return recs;
+}
+function stripExt(filename) { return filename.replace(/\.(fa|fasta|fna|ffn|frn)$/i,''); }
+function cleanName(filename) { return stripExt(filename).replace(/_\d+$/,''); }
+function wrap(seq,w=60) { return (seq.match(new RegExp(`.{1,${w}}`,'g'))||[seq]).join('\n'); }
+function dl(filename,text) {
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);document.body.removeChild(a);},100);
+}
+function dlXlsx(filename, sheets) {
+  const wb = XLSX.utils.book_new();
+  for (const {name, rows} of sheets) {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = rows[0].map((_,ci) =>
+      ({wch: Math.min(80, Math.max(14, ...rows.map(r => String(r[ci]||'').length)))})
+    );
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+  XLSX.writeFile(wb, filename);
+}
+function toCSV(rows) {
+  return rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+
+// ── Page-level tab switching ──────────────────────────────────────────────────
+document.querySelectorAll('.page-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.page-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-'+tab.dataset.page).classList.add('active');
+  });
+});
+
+// ── STEP 1 logic ──────────────────────────────────────────────────────────────
+let s1Files=[], s1Records=[];
+
+const s1Drop=document.getElementById('s1-dropZone');
+const s1Input=document.getElementById('s1-fileInput');
+const s1RunBtn=document.getElementById('s1-runBtn');
+const s1Err=document.getElementById('s1-errMsg');
+
+s1Drop.addEventListener('click',()=>s1Input.click());
+s1Drop.addEventListener('dragover',e=>{e.preventDefault();s1Drop.classList.add('dragover');});
+s1Drop.addEventListener('dragleave',()=>s1Drop.classList.remove('dragover'));
+s1Drop.addEventListener('drop',e=>{e.preventDefault();s1Drop.classList.remove('dragover');s1AddFiles([...e.dataTransfer.files]);});
+s1Input.addEventListener('change',()=>s1AddFiles([...s1Input.files]));
+
+function s1AddFiles(newFiles) {
+  const ext=/\.(fa|fasta|fna)$/i;
+  newFiles.filter(f=>ext.test(f.name)&&!s1Files.find(x=>x.name===f.name)).forEach(f=>s1Files.push(f));
+  s1RenderFileList();
+}
+function s1RenderFileList() {
+  const list=document.getElementById('s1-fileList'); list.innerHTML='';
+  s1Files.forEach((f,i)=>{
+    const chip=document.createElement('div'); chip.className='file-chip';
+    chip.innerHTML=`<i class="ti ti-file" style="font-size:13px;color:var(--text-tertiary)" aria-hidden="true"></i>
+      <span class="fname">${f.name}</span><span class="rm" data-i="${i}">×</span>`;
+    list.appendChild(chip);
+  });
+  list.querySelectorAll('.rm').forEach(btn=>btn.addEventListener('click',()=>{s1Files.splice(+btn.dataset.i,1);s1RenderFileList();}));
+  s1RunBtn.disabled=s1Files.length===0;
+}
+
+s1RunBtn.addEventListener('click',async()=>{
+  s1Err.style.display='none';
+  s1RunBtn.disabled=true;
+  s1RunBtn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i> Processing…';
+  try {
+    const texts=await Promise.all(s1Files.map(f=>f.text()));
+    s1Records=[];
+    s1Files.forEach((f,i)=>{
+      const name=stripExt(f.name);
+      const recs=parseFasta(texts[i]);
+      if(recs.length>0) {
+        // take first record's sequence; strip any whitespace/numbers (plain AA string)
+        const seq=recs[0][1].replace(/[^A-Za-z*]/g,'').toUpperCase(); // keep trailing * for export
+        if(seq) s1Records.push({name,seq});
+      }
+    });
+    if(!s1Records.length) throw new Error('No valid sequences found. Make sure files are protein FASTA format.');
+    s1RenderResults();
+  } catch(e) {
+    s1Err.textContent=e.message; s1Err.style.display='block';
+  } finally {
+    s1RunBtn.disabled=false;
+    s1RunBtn.innerHTML='<i class="ti ti-table-export" aria-hidden="true"></i> Generate codon opt input';
+  }
+});
+
+function s1RenderResults() {
+  document.getElementById('s1-resultsPanel').classList.add('show');
+  const sr=document.getElementById('s1-statusRow');
+  sr.style.display='flex';
+  document.getElementById('s1-statusText').textContent=
+    `${s1Records.length} sequence${s1Records.length>1?'s':''} ready for codon optimization`;
+
+  const tbody=document.getElementById('s1-previewBody'); tbody.innerHTML='';
+  for(const {name,seq} of s1Records) {
+    const tr=document.createElement('tr');
+    const preview=seq.length>40?seq.slice(0,40)+'…':seq;
+    tr.innerHTML=`<td class="td-name">${name}</td><td class="td-seq">${preview}</td><td class="td-len">${seq.length} aa</td>`;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('s1-dlCsv').onclick=()=>{
+    const rows=[['Sequence name','Protein sequence']];
+    for(const {name,seq} of s1Records) rows.push([name,seq]);
+    dlXlsx('codon_opt_input.xlsx',[{name:'Sequences', rows}]);
+  };
+}
+
+// ── STEP 2 logic ──────────────────────────────────────────────────────────────
+let s2Files=[], s2Records=[], s2PickMode='first';
+
+const s2Drop=document.getElementById('s2-dropZone');
+const s2Input=document.getElementById('s2-fileInput');
+const s2RunBtn=document.getElementById('s2-runBtn');
+const s2Err=document.getElementById('s2-errMsg');
+
+s2Drop.addEventListener('click',()=>s2Input.click());
+s2Drop.addEventListener('dragover',e=>{e.preventDefault();s2Drop.classList.add('dragover');});
+s2Drop.addEventListener('dragleave',()=>s2Drop.classList.remove('dragover'));
+s2Drop.addEventListener('drop',e=>{e.preventDefault();s2Drop.classList.remove('dragover');s2AddFiles([...e.dataTransfer.files]);});
+s2Input.addEventListener('change',()=>s2AddFiles([...s2Input.files]));
+
+document.getElementById('s2-pickGroup').addEventListener('click',e=>{
+  const opt=e.target.closest('.pick-opt'); if(!opt) return;
+  s2PickMode=opt.dataset.pick;
+  document.querySelectorAll('#s2-pickGroup .pick-opt').forEach(o=>o.classList.remove('active'));
+  opt.classList.add('active');
+});
+
+document.querySelectorAll('.inner-tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.inner-tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.inner-tab-content').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('s2-tab-'+t.dataset.itab).classList.add('active');
+  });
+});
+
+function s2AddFiles(newFiles) {
+  const ext=/\.(fa|fasta|fna|ffn|frn)$/i;
+  newFiles.filter(f=>ext.test(f.name)&&!s2Files.find(x=>x.name===f.name)).forEach(f=>s2Files.push(f));
+  s2RenderFileList();
+}
+function s2RenderFileList() {
+  const list=document.getElementById('s2-fileList'); list.innerHTML='';
+  s2Files.forEach((f,i)=>{
+    const chip=document.createElement('div'); chip.className='file-chip';
+    chip.innerHTML=`<i class="ti ti-file" style="font-size:13px;color:var(--text-tertiary)" aria-hidden="true"></i>
+      <span class="fname">${f.name}</span><span class="rm" data-i="${i}">×</span>`;
+    list.appendChild(chip);
+  });
+  list.querySelectorAll('.rm').forEach(btn=>btn.addEventListener('click',()=>{s2Files.splice(+btn.dataset.i,1);s2RenderFileList();}));
+  s2RunBtn.disabled=s2Files.length===0;
+}
+
+s2RunBtn.addEventListener('click',async()=>{
+  s2Err.style.display='none';
+  s2RunBtn.disabled=true;
+  s2RunBtn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i> Processing…';
+  try {
+    const doRC=document.getElementById('s2-rcToggle').checked;
+    const texts=await Promise.all(s2Files.map(f=>f.text()));
+    const byFolder={};
+    s2Files.forEach((f,i)=>{
+      const folder=cleanName(f.name);
+      if(!byFolder[folder]) byFolder[folder]=[];
+      byFolder[folder].push({name:f.name,text:texts[i],size:texts[i].replace(/[^ACGTacgt]/g,'').length});
+    });
+    s2Records=[];
+    for(const [folder,entries] of Object.entries(byFolder)) {
+      let chosen;
+      if(s2PickMode==='longest') chosen=entries.sort((a,b)=>b.size-a.size)[0];
+      else if(s2PickMode==='last') chosen=entries.sort((a,b)=>b.name.localeCompare(a.name))[0];
+      else chosen=entries.sort((a,b)=>a.name.localeCompare(b.name))[0];
+      const recs=parseFasta(chosen.text);
+      for(const [,seq] of recs) s2Records.push({name:folder,seq:doRC?revcomp(seq):seq,senseSeq:seq});
+    }
+    if(!s2Records.length) throw new Error('No valid sequences found in uploaded files.');
+    s2RenderResults(doRC);
+  } catch(e) {
+    s2Err.textContent=e.message; s2Err.style.display='block';
+  } finally {
+    s2RunBtn.disabled=false;
+    s2RunBtn.innerHTML='<i class="ti ti-player-play" aria-hidden="true"></i> Process sequences';
+  }
+});
+
+function s2RenderResults(wasRC) {
+  document.getElementById('s2-resultsPanel').classList.add('show');
+  const sr=document.getElementById('s2-statusRow'); sr.style.display='flex';
+  document.getElementById('s2-statusText').textContent=
+    `${s2Records.length} sequence${s2Records.length>1?'s':''} processed${wasRC?' · reverse complemented':''}`;
+
+  const dnaTab=document.getElementById('s2-tab-dna');
+  const aaTab=document.getElementById('s2-tab-aa');
+  dnaTab.innerHTML=''; aaTab.innerHTML='';
+
+  for(const rec of s2Records) {
+    const {name,seq}=rec;
+    const dEntry=document.createElement('div'); dEntry.className='seq-entry';
+    dEntry.innerHTML=`<div class="seq-header">
+        <span class="seq-name">${name}</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="seq-meta">${seq.length} bp</span>
+          <button class="copy-btn">Copy</button>
+        </span>
+      </div><div class="seq-body">${wrap(seq)}</div>`;
+    dEntry.querySelector('.copy-btn').addEventListener('click',function(){
+      navigator.clipboard.writeText(seq);
+      this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy',1500);
+    });
+    dnaTab.appendChild(dEntry);
+
+    const aEntry=document.createElement('div'); aEntry.className='seq-entry';
+    // Translate the sense strand (codon opt output) regardless of RC toggle
+    const aa=translate(rec.senseSeq||seq,0);
+    const hasStart=aa.startsWith('M');
+    const stopIdx=aa.indexOf('*');
+    const hasStop=stopIdx>=0;
+    const aaClean=hasStop?aa.slice(0,stopIdx+1):aa; // include stop char for display
+    const aaNoStop=hasStop?aa.slice(0,stopIdx):aa;  // without stop for comparison
+
+    // Build alerts
+    let alertsHtml='';
+    // Check against Step 1 protein if available
+    const s1match=s1Records.find(r=>r.name===name);
+    if(s1match) {
+      const s1seq=s1match.seq.replace(/\*+$/,''); // strip trailing * for comparison only
+      const match=aaNoStop.toUpperCase()===s1seq.toUpperCase();
+      if(match) alertsHtml+=`<div class="alert alert-ok"><i class="ti ti-circle-check" aria-hidden="true"></i>Translation matches Step 1 protein sequence</div>`;
+      else alertsHtml+=`<div class="alert alert-err"><i class="ti ti-alert-circle" aria-hidden="true"></i>Translation does <strong>not</strong> match Step 1 protein sequence</div>`;
+    }
+    if(!hasStart) alertsHtml+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle" aria-hidden="true"></i>No start codon (M) — sequence may be incomplete or in wrong frame</div>`;
+    if(!hasStop)  alertsHtml+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle" aria-hidden="true"></i>No stop codon — sequence may be truncated</div>`;
+
+    // Format AA display with stop codon highlighted
+    const displayAA=hasStop
+      ? aaNoStop+'<span class="stop-mark">*</span>'
+      : aa;
+
+    aEntry.innerHTML=`<div class="seq-header">
+        <span class="seq-name">${name}</span>
+        <span class="seq-meta">${seq.length} bp · ${aaNoStop.length} aa${hasStop?' · stop at nt '+(stopIdx*3+1):''}${wasRC?' · rev comp':''}</span>
+      </div><div class="seq-body">
+        ${alertsHtml}
+        <div class="aa-frame-label" style="margin-top:${alertsHtml?'10px':'0'};margin-bottom:4px">Frame +1 — sense strand${wasRC?' (codon opt output, prior to reverse complement)':''}</div>
+        <div class="aa-seq">${displayAA}</div>
+      </div>`;
+    aaTab.appendChild(aEntry);
+  }
+
+  document.getElementById('s2-dlFasta').onclick=()=>{
+    let out='';
+    for(const {name,seq} of s2Records) out+=`>${name}\n${wrap(seq)}\n`;
+    dl('sequences.fasta',out);
+  };
+  document.getElementById('s2-dlCsv').onclick=()=>{
+    const dnaRows=[['Sequence name','DNA sequence']];
+    const aaRows=[['Sequence name','Translation (frame +1)','Has start (M)','Has stop (*)','Matches Step 1 protein']];
+    for(const rec of s2Records) {
+      const {name,seq}=rec;
+      dnaRows.push([name,seq]);
+      const aa=translate(rec.senseSeq||seq,0);
+      const stopIdx=aa.indexOf('*');
+      const aaNoStop=stopIdx>=0?aa.slice(0,stopIdx):aa;
+      const s1match=s1Records.find(r=>r.name===name);
+      const matchStr=s1match?(aaNoStop.toUpperCase()===s1match.seq.toUpperCase()?'YES':'NO'):'N/A (no Step 1 data)';
+      aaRows.push([name, stopIdx>=0?aaNoStop+'*':aa, aa.startsWith('M')?'YES':'NO', stopIdx>=0?'YES':'NO', matchStr]);
+    }
+    dlXlsx('sequences.xlsx',[
+      {name:'DNA sequences', rows:dnaRows},
+      {name:'Translation (frame +1)', rows:aaRows}
+    ]);
+  };
+}
+</script>
+</body>
+</html>
